@@ -244,7 +244,7 @@ def run_model(model, img: np.ndarray, conf_thresh: float):
         out.append({"class": cname, "conf": round(conf, 3), "box": xyxy})
     return out
 
-def extend_moto_crop(img, box, top_ext_pct=60, side_pct=8, bottom_pct=10):
+def extend_moto_crop(img, box, top_ext_pct=90, side_pct=10, bottom_pct=10):
     """
     Extend motorcycle bounding box UPWARD to capture driver + helmet.
     The rider sits above the bike frame, so the helmet is above y1.
@@ -258,7 +258,7 @@ def extend_moto_crop(img, box, top_ext_pct=60, side_pct=8, bottom_pct=10):
     new_x2 = x2 + w * side_pct / 100
     return safe_crop(img, new_x1, new_y1, new_x2, new_y2)
 
-def extend_moto_box(box, img_shape, top_ext_pct=60, side_pct=8, bottom_pct=10):
+def extend_moto_box(box, img_shape, top_ext_pct=90, side_pct=10, bottom_pct=10):
     """Return the extended box coords (clamped) for annotation drawing."""
     H, W = img_shape[:2]
     x1, y1, x2, y2 = box
@@ -269,7 +269,7 @@ def extend_moto_box(box, img_shape, top_ext_pct=60, side_pct=8, bottom_pct=10):
     ny2 = min(H, y2 + h * bottom_pct / 100)
     return [nx1, ny1, nx2, ny2]
 
-def extend_car_crop(img, box, side_pct=8, top_pct=8, bottom_pct=12):
+def extend_car_crop(img, box, side_pct=8, top_pct=8, bottom_pct=20):
     """
     Extend car bounding box with generous padding on all sides.
     Extra bottom padding captures the license plate which is often
@@ -283,7 +283,7 @@ def extend_car_crop(img, box, side_pct=8, top_pct=8, bottom_pct=12):
     new_y2 = y2 + h * bottom_pct / 100
     return safe_crop(img, new_x1, new_y1, new_x2, new_y2)
 
-def extend_car_box(box, img_shape, side_pct=8, top_pct=8, bottom_pct=12):
+def extend_car_box(box, img_shape, side_pct=8, top_pct=8, bottom_pct=20):
     """Return extended car box coords (clamped) for annotation drawing."""
     H, W = img_shape[:2]
     x1, y1, x2, y2 = box
