@@ -244,14 +244,14 @@ def run_model(model, img: np.ndarray, conf_thresh: float):
         out.append({"class": cname, "conf": round(conf, 3), "box": xyxy})
     return out
 
-def extend_moto_crop(img, box, h_ext_pct=55, side_pct=8):
+def extend_moto_crop(img, box, h_ext_pct=60, side_pct=8):
     x1, y1, x2, y2 = box
     w, h = x2 - x1, y2 - y1
     return safe_crop(img,
         x1 - w * side_pct / 100,
-        y1,
+        y1 - h * h_ext_pct,
         x2 + w * side_pct / 100,
-        y2 + h * h_ext_pct / 100
+        y2 + h * side_pct / 100
     )
 
 def extend_car_crop(img, box, pad_pct=5):
