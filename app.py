@@ -244,21 +244,55 @@ def run_model(model, img: np.ndarray, conf_thresh: float):
         out.append({"class": cname, "conf": round(conf, 3), "box": xyxy})
     return out
 
-def extend_moto_crop(img, box, h_ext_pct=60, side_pct=8):
+def extend_moto_crop(img, box, top_ext_pct=60, side_pct=8, bottom_pct=10):
+    """
+    Extend motorcycle bounding box UPWARD to capture driver + helmet.
+    The rider sits above the bike frame, so the helmet is above y1.
+    A small bottom pad retains the license plate area.
+    """
     x1, y1, x2, y2 = box
     w, h = x2 - x1, y2 - y1
-    return safe_crop(img,
-        x1 - w * side_pct / 100,
-        y1 - h * h_ext_pct,
-        x2 + w * side_pct / 100,
-        y2 + h * side_pct / 100
-    )
+    new_y1 = y1 - h * top_ext_pct / 100   # ← extend UP for helmet/driver
+    new_y2 = y2 + h * bottom_pct / 100    # small downward pad for plate
+    new_x1 = x1 - w * side_pct / 100
+    new_x2 = x2 + w * side_pct / 100
+    return safe_crop(img, new_x1, new_y1, new_x2, new_y2)
 
-def extend_car_crop(img, box, pad_pct=5):
+def extend_moto_box(box, img_shape, top_ext_pct=60, side_pct=8, bottom_pct=10):
+    """Return the extended box coords (clamped) for annotation drawing."""
+    H, W = img_shape[:2]
     x1, y1, x2, y2 = box
     w, h = x2 - x1, y2 - y1
-    p = max(w, h) * pad_pct / 100
-    return safe_crop(img, x1-p, y1-p, x2+p, y2+p)
+    nx1 = max(0, x1 - w * side_pct / 100)
+    ny1 = max(0, y1 - h * top_ext_pct / 100)
+    nx2 = min(W, x2 + w * side_pct / 100)
+    ny2 = min(H, y2 + h * bottom_pct / 100)
+    return [nx1, ny1, nx2, ny2]
+
+def extend_car_crop(img, box, side_pct=8, top_pct=8, bottom_pct=12):
+    """
+    Extend car bounding box with generous padding on all sides.
+    Extra bottom padding captures the license plate which is often
+    at or just below the detected box boundary.
+    """
+    x1, y1, x2, y2 = box
+    w, h = x2 - x1, y2 - y1
+    new_x1 = x1 - w * side_pct / 100
+    new_y1 = y1 - h * top_pct / 100
+    new_x2 = x2 + w * side_pct / 100
+    new_y2 = y2 + h * bottom_pct / 100
+    return safe_crop(img, new_x1, new_y1, new_x2, new_y2)
+
+def extend_car_box(box, img_shape, side_pct=8, top_pct=8, bottom_pct=12):
+    """Return extended car box coords (clamped) for annotation drawing."""
+    H, W = img_shape[:2]
+    x1, y1, x2, y2 = box
+    w, h = x2 - x1, y2 - y1
+    nx1 = max(0, x1 - w * side_pct / 100)
+    ny1 = max(0, y1 - h * top_pct / 100)
+    nx2 = min(W, x2 + w * side_pct / 100)
+    ny2 = min(H, y2 + h * bottom_pct / 100)
+    return [nx1, ny1, nx2, ny2]
 
 def clean_plate_text(raw: str) -> str:
     txt = re.sub(r"[^A-Z0-9\- ]", "", raw.upper()).strip()
@@ -347,7 +381,10 @@ def run_pipeline(img_bgr, models, reader, conf, moto_ext_pct, log_cb):
     # ── Step 2a : motorcycles ─────────────────────────────────────────────
     for idx, moto in enumerate(motos):
         log_cb(f"Motorcycle {idx+1}/{len(motos)} → helmet model (model3)…", 30)
-        crop = extend_moto_crop(img_bgr, moto["box"], h_ext_pct=moto_ext_pct)
+        crop = extend_moto_crop(img_bgr, moto["box"],
+                                top_ext_pct=moto_ext_pct, side_pct=8, bottom_pct=10)
+        ext_box = extend_moto_box(moto["box"], img_bgr.shape,
+                                  top_ext_pct=moto_ext_pct, side_pct=8, bottom_pct=10)
         if crop.size == 0: continue
 
         h_dets    = run_model(models["helmet"], crop, conf["helmet"])
@@ -388,19 +425,20 @@ def run_pipeline(img_bgr, models, reader, conf, moto_ext_pct, log_cb):
                 "crop_bgr":         crop,
                 "plate_crop_bgr":   plate_crop_bgr,
             })
-            anno_boxes.append({"class":"NO HELMET","conf":moto["conf"],"box":moto["box"]})
+            anno_boxes.append({"class":"NO HELMET","conf":moto["conf"],"box":ext_box})
 
         elif has_helmet:
             clean_vehicles.append({**base, "status": "✅ Helmet Present"})
-            anno_boxes.append({"class":"HELMET OK","conf":moto["conf"],"box":moto["box"]})
+            anno_boxes.append({"class":"HELMET OK","conf":moto["conf"],"box":ext_box})
         else:
             clean_vehicles.append({**base, "status": "❓ Helmet Uncertain"})
-            anno_boxes.append({"class":"UNCERTAIN","conf":moto["conf"],"box":moto["box"]})
+            anno_boxes.append({"class":"UNCERTAIN","conf":moto["conf"],"box":ext_box})
 
     # ── Step 2b : cars ────────────────────────────────────────────────────
     for idx, car in enumerate(cars):
         log_cb(f"Car {idx+1}/{len(cars)} → seatbelt model (model2)…", 60)
-        crop = extend_car_crop(img_bgr, car["box"])
+        crop = extend_car_crop(img_bgr, car["box"], side_pct=8, top_pct=8, bottom_pct=12)
+        ext_box = extend_car_box(car["box"], img_bgr.shape, side_pct=8, top_pct=8, bottom_pct=12)
         if crop.size == 0: continue
 
         sb_dets   = run_model(models["seatbelt"], crop, conf["seatbelt"])
@@ -435,14 +473,14 @@ def run_pipeline(img_bgr, models, reader, conf, moto_ext_pct, log_cb):
                 "crop_bgr":         crop,
                 "plate_crop_bgr":   plate_crop_bgr,
             })
-            anno_boxes.append({"class":"NO SEATBELT","conf":car["conf"],"box":car["box"]})
+            anno_boxes.append({"class":"NO SEATBELT","conf":car["conf"],"box":ext_box})
 
         elif has_belt:
             clean_vehicles.append({**base, "status": "✅ Seatbelt Present"})
-            anno_boxes.append({"class":"SEATBELT OK","conf":car["conf"],"box":car["box"]})
+            anno_boxes.append({"class":"SEATBELT OK","conf":car["conf"],"box":ext_box})
         else:
             clean_vehicles.append({**base, "status": "❓ Seatbelt Uncertain"})
-            anno_boxes.append({"class":"UNCERTAIN","conf":car["conf"],"box":car["box"]})
+            anno_boxes.append({"class":"UNCERTAIN","conf":car["conf"],"box":ext_box})
 
     # ── Annotate main image ───────────────────────────────────────────────
     COLOR_MAP = {
@@ -472,8 +510,8 @@ with st.sidebar:
 
     st.markdown('<div class="sb-section">Motorcycle Crop</div>', unsafe_allow_html=True)
     moto_ext = st.slider(
-        "Height extension below box (%)", 20, 90, 55, 5,
-        help="Adds extra height below the detected motorcycle so the rider's helmet enters the crop."
+        "Height extension ABOVE box (%)", 20, 120, 60, 5,
+        help="Adds extra height ABOVE the detected motorcycle box to capture the rider's helmet and head."
     )
 
     st.markdown('<div class="sb-section">Loaded Models</div>', unsafe_allow_html=True)
@@ -691,8 +729,12 @@ else:
 
         c1, c2 = st.columns(2, gap="small")
         with c1:
-            st.caption(f"Vehicle crop — {v['type']} (violation evidence)")
-            st.image(np_to_pil(v["crop_bgr"]), use_container_width=True)
+            st.caption(f"Extended vehicle crop — {v['type']} (driver/helmet included)")
+            # Draw the extended box outline on the crop itself for clarity
+            crop_vis = v["crop_bgr"].copy()
+            ch, cw = crop_vis.shape[:2]
+            cv2.rectangle(crop_vis, (2, 2), (cw-2, ch-2), (0, 200, 255), 2)
+            st.image(np_to_pil(crop_vis), use_container_width=True)
         with c2:
             if v["plate_crop_bgr"] is not None and v["plate_crop_bgr"].size > 0:
                 st.caption(f"License plate crop · Plate: {v['plate_text']} · OCR conf: {oc:.3f}")
