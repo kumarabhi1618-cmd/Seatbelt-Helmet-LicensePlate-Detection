@@ -2,6 +2,10 @@
 
 Automated traffic violation detection system built for the EE655 project.
 
+# Link for the app
+
+https://traffic-guard-ai-cmuwavclgnb4egireb6cl5.streamlit.app/
+
 ## Pipeline
 
 ```
