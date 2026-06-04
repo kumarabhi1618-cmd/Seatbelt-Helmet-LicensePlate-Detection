@@ -5,10 +5,6 @@
 > An end-to-end computer vision pipeline that detects helmet and seatbelt violations from traffic images, identifies license plates, and generates downloadable violation reports — all in a real-time Streamlit web app.
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-Streamlit-FF4B4B?logo=streamlit)](https://traffic-guard-ai-cmuwavclgnb4egireb6cl5.streamlit.app/)
-![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python)
-![YOLOv8](https://img.shields.io/badge/YOLOv8-Ultralytics-purple)
-![EasyOCR](https://img.shields.io/badge/OCR-EasyOCR-orange)
-![EE655](https://img.shields.io/badge/Course-EE655-lightgrey)
 
 ---
 
