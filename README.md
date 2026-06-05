@@ -210,4 +210,5 @@ This project was developed as part of **EE655** coursework. All datasets used fo
 
 - [Ultralytics YOLOv8](https://github.com/ultralytics/ultralytics) for the detection backbone
 - [EasyOCR](https://github.com/JaidedAI/EasyOCR) for plate text reading
-- Kaggle datasets: HeteroTraffic Annotated Dataset, Seatbelt Detection Dataset, Helmet Detection Dataset, License Plate Detection Dataset
+- Kaggle datasets: Seatbelt Detection Dataset, Helmet Detection Dataset, License Plate Detection Dataset
+- Mendeley Data: HeteroTraffic: Annotated Dataset for Multi-Class Vehicle Detection in Varied Illumination and Road Conditions
