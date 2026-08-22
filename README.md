@@ -1,4 +1,4 @@
-# 🚦 TrafficGuard AI
+# 🚦 Traffic Violation Detection System
 
 **Automated Traffic Violation Detection System**
 
